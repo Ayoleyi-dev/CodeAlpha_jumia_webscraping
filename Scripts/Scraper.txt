@@ -1,0 +1,80 @@
+import requests
+from bs4 import BeautifulSoup
+import pandas as pd
+
+BASE_URL = "https://www.jumia.com.ng/phones-tablets/?page={}"
+
+names = []
+prices = []
+old_prices = []
+discounts = []
+ratings = []
+reviews_count = []
+links = []
+
+headers = {
+    "User-Agent": "Mozilla/5.0"
+}
+
+for page in range(1, 6):
+    print(f"Scraping page {page}...")
+    url = BASE_URL.format(page)
+    
+    try:
+        response = requests.get(url, headers=headers)
+        soup = BeautifulSoup(response.text, "lxml")
+
+        products = soup.select("article.prd._fb.col.c-prd")
+
+        for p in products:
+            # Name
+            title = p.select_one("h3.name")
+            names.append(title.text.strip() if title else "")
+
+            # Price
+            prc = p.select_one("div.prc")
+            prices.append(prc.text.strip() if prc else "")
+
+            # Old Price
+            old = p.select_one("div.old")
+            old_prices.append(old.text.strip() if old else "")
+
+            # Discount
+            disc = p.select_one("div.bdg._dsct")
+            discounts.append(disc.text.strip() if disc else "")
+
+            # Rating
+            star = p.select_one("div.stars._s")
+            ratings.append(star.text.strip() if star else "")
+
+            # Reviews
+            rev = p.select_one("div.rev")
+            reviews_count.append(rev.text.strip() if rev else "")
+
+            # Product Link
+            a = p.find("a", href=True)
+            if a:
+                links.append("https://www.jumia.com.ng" + a["href"])
+            else:
+                links.append("")
+
+    except Exception as e:
+        print("Error:", e)
+
+# Fix unequal lengths
+min_len = min(len(names), len(prices), len(old_prices),
+              len(discounts), len(ratings),
+              len(reviews_count), len(links))
+
+df = pd.DataFrame({
+    "Phone Name": names[:min_len],
+    "Price": prices[:min_len],
+    "Old Price": old_prices[:min_len],
+    "Discount": discounts[:min_len],
+    "Rating": ratings[:min_len],
+    "Reviews Count": reviews_count[:min_len],
+    "Product Link": links[:min_len]
+})
+
+df.to_csv("../data/jumia_phones.csv", index=False)
+print("Saved: data/jumia_phones.csv")
